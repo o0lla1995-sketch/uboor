@@ -37,9 +37,14 @@ export default function LoginPage() {
         throw signInError;
       }
 
-      if (data.user) {
+      // ✅ التأكد من وجود session قبل التوجيه
+      if (data.session) {
+        // ننتظر شوي عشان cookies تتخزن
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push('/dashboard');
         router.refresh();
+      } else {
+        throw new Error('فشل إنشاء الجلسة، جرب مرة أخرى');
       }
     } catch (err: any) {
       setError(err.message);
@@ -74,8 +79,13 @@ export default function LoginPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">رقم الهوية الفلسطينية</label>
             <input
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={form.id_number}
-              onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                setForm({ ...form, id_number: val });
+              }}
               maxLength={9}
               placeholder="أدخل 9 أرقام"
               className="input-field text-left"
