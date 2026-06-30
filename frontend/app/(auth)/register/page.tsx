@@ -62,20 +62,50 @@ export default function RegisterPage() {
       }
 
       if (data.user) {
-        await supabase
+        // ✅ إنشاء/تحديث البروفايل
+        const { error: upsertError } = await supabase
           .from('users_profile')
-          .update({
+          .upsert({
+            id: data.user.id,
             id_number: form.id_number,
             full_name: form.full_name,
             phone_number: form.phone_number,
-          })
-          .eq('id', data.user.id);
+            email: email,
+          });
 
-        setStep(2);
-        setTimeout(() => {
-          router.push('/dashboard');
-          router.refresh();
-        }, 2000);
+        if (upsertError) {
+          console.error('Profile upsert error:', upsertError);
+        }
+
+        // ✅ تسجيل الدخول تلقائياً بعد التسجيل (عشان نحصل session)
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password: form.password,
+        });
+
+        if (signInError) {
+          console.error('Auto sign-in error:', signInError);
+          // لو فشل التسجيل التلقائي، نروح للخطوة 2 والمستخدم يسجل دخول يدوي
+          setStep(2);
+          setLoading(false);
+          return;
+        }
+
+        // ✅ التأكد من وجود session قبل التوجيه
+        if (signInData.session) {
+          setStep(2);
+          // انتظر شوي عشان session يتخزن في cookies
+          setTimeout(() => {
+            router.push('/dashboard');
+            router.refresh();
+          }, 1500);
+        } else {
+          setStep(2);
+          setTimeout(() => {
+            router.push('/login');
+            router.refresh();
+          }, 2000);
+        }
       }
     } catch (err: any) {
       setError(err.message);
@@ -124,8 +154,13 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">رقم الهوية الفلسطينية</label>
             <input
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={form.id_number}
-              onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 9);
+                setForm({ ...form, id_number: val });
+              }}
               maxLength={9}
               placeholder="أدخل 9 أرقام"
               className="input-field text-left"
@@ -150,8 +185,12 @@ export default function RegisterPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">رقم الهاتف</label>
             <input
               type="tel"
+              inputMode="tel"
               value={form.phone_number}
-              onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setForm({ ...form, phone_number: val });
+              }}
               placeholder="مثال: 0599123456"
               className="input-field text-left"
               dir="ltr"
@@ -183,15 +222,24 @@ export default function RegisterPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">تأكيد كلمة المرور</label>
-            <input
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              placeholder="••••••••"
-              className="input-field text-left"
-              dir="ltr"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                placeholder="••••••••"
+                className="input-field text-left pr-10"
+                dir="ltr"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <button
