@@ -26,5 +26,5 @@ export function isUnderage(birthDate: string | Date): boolean {
 
 // FIX: Use a valid email domain instead of .local (Supabase rejects .local)
 export function generateEmailFromID(idNumber: string): string {
-  return `user_${idNumber}@gaza-travel.app`;
+  return `user_${idNumber}`;
 }
